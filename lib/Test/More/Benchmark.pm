@@ -1,111 +1,167 @@
-package Test::More::Benchmark;
-
+package Test::More::Benchmark ;
+## This package borrows from Test::Builder::Module and from
+## Test::More::Diagnostic.  Not sure which is more appropriate at this
+## point.
 use 5.006;
 use strict;
 use warnings;
+use base qw/Test::Builder::Module/ ;
+
+use Test::More::Diagnostic ;
+use Benchmark qw/:hireswallclock/ ;
+use Data::Dumper ;
+
+# $ENV{TAP_VERSION} = 13 ;
+our $CLASS = __PACKAGE__ ;  ## not sure what __PACKAGE__ will be when needed.
+our @EXPORT = qw(ok_timeit) ;
+our $VERSION = '0.1';
+
+# Regular OK, with timestamps.
+sub ok_timeit (&;$) {
+    my ( $test, $name ) = @_;
+    if (ref $test ne 'CODE') {
+      ## Prototyping is not a panacea; clever folks can bypass it.
+      ## sub{ goto &ok_timeit }->( 1, 'Psych!' ) ;
+      ## There are probably easier ways, too.
+      warn "You tried to time a test that isn't a subroutine.  That's probably not what you meant" ;
+      $test = sub { $test } ;
+    }
+    my $t = timeit( 1, sub { $test = eval {&$test} } ) ;
+    warn $@ if $@ ;
+
+    my $tb = $CLASS->builder;
+
+    my $ok = $tb->ok( $test, $name );
+    ## Is there a more subclassy-way?
+    if (Test::More::Diagnostic::_should_yaml()) {
+      TAP::Parser::YAMLish::Writer->new->write(
+            {
+	     timing => timestr($t),
+            },
+            sub {
+	      $tb->_print( '  ' . $_[0]) ;
+            }
+					      );
+    }
+    return $ok;
+}
+
+1;
+__END__
 
 =head1 NAME
 
-Test::More::Benchmark - The great new Test::More::Benchmark!
+Test::More::Benchmark - Building upon C<Test::More::Diagnostic> to add timing data to tests.
 
 =head1 VERSION
 
-Version 0.01
-
-=cut
-
-our $VERSION = '0.01';
-
+This document describes Test::More::Benchmark version 0.1
 
 =head1 SYNOPSIS
 
-Quick summary of what the module does.
-
-Perhaps a little code snippet.
-
+    use Test::More;              # DON'T PLAN
     use Test::More::Benchmark;
+    plan tests => 1;
 
-    my $foo = Test::More::Benchmark->new();
-    ...
+    ok_timeit( sub { ... somehting interseting ... }, 'Timed test' ) ;
+
+This package is based upon C<Test::More::Diagnostic>, which some folks might not have installed.  So one might try:
+
+    eval 'use Test::More::Diagnostic';
+    diag "Test::More::Diagnostic not available' if $@;
+
+but then it's a little awkward to call C<ok_timeit>.
 
 =head1 EXPORT
 
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
+C<ok_timeit>
 
-=head1 SUBROUTINES/METHODS
+=head1 DESCRIPTION
 
-=head2 function1
+Building upon C<Test::More::Diagnostic>, we upgrade C<Test::More>'s
+output to TAP version 13. See
 
-=cut
+  http://testanything.org/wiki/index.php/TAP_diagnostic_syntax
 
-sub function1 {
-}
+for more information about YAML diagnostics.
 
-=head2 function2
+=head1 INTERFACE 
 
-=cut
+To add YAML benchmarking to your test output:
 
-sub function2 {
-}
+    use Test::More;              # DON'T PLAN
+    use Test::More::Benchmark;
+    plan tests => 1;
 
-=head1 AUTHOR
+It's important that you don't attempt to plan before loading
+C<Test::More::Benchmark>. If you do the TAP version line will appear in
+the wrong place in the output.
 
-David McMath, C<< <dt.mcmath at gmail.com> >>
+=over
 
-=head1 BUGS
+=item C<< ok_timeit >>
 
-Please report any bugs or feature requests to C<bug-test-more-benchmark at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Test-More-Benchmark>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
-
-
-
-
-=head1 SUPPORT
-
-You can find documentation for this module with the perldoc command.
-
-    perldoc Test::More::Benchmark
-
-
-You can also look for information at:
-
-=over 4
-
-=item * RT: CPAN's request tracker (report bugs here)
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Test-More-Benchmark>
-
-=item * AnnoCPAN: Annotated CPAN documentation
-
-L<http://annocpan.org/dist/Test-More-Benchmark>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/Test-More-Benchmark>
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/Test-More-Benchmark/>
+A combination of C<Test::Builder>'s "ok" and C<Benchmark>'s "timeit".
+The first argument must be a subroutine.  This version executes the
+subroutine, then calls "ok" and adds basic YAML output describing the
+timing (assuming C<$ENV{TAP_VERSION}> has been set high enough.
 
 =back
 
+=head1 CONFIGURATION AND ENVIRONMENT
+  
+C<Test::More::Diagnostic> requires no configuration files or environment variables.
+
+=head1 DEPENDENCIES
+
+C<Test::More::Diagnostic>, C<Benchmark>, C<Time::HiRes>.
+
+=head1 INCOMPATIBILITIES
+
+None reported.
+
+=head1 BUGS AND LIMITATIONS
+
+No bugs have been reported.
+
+Please report any bugs or feature requests to C<mcdave@stanford.edu>.
+
+=head1 AUTHOR
+
+David McMath  C<< <mcdave@stanford.edu> >>
 
 =head1 ACKNOWLEDGEMENTS
 
+I ripped most of it off from C<Test::More::Diagnostic> by Andy Armstrong C<< <andy@hexten.net> >>.
 
-=head1 LICENSE AND COPYRIGHT
+=head1 LICENCE AND COPYRIGHT
 
-Copyright 2012 David McMath.
+Copyright (c) 2012, David McMath C<< <mcdave@stanford.edu> >>. All
+rights reserved, to the extent acceptible under Stanford's IP
+policies.
 
-This program is free software; you can redistribute it and/or modify it
-under the terms of either: the GNU General Public License as published
-by the Free Software Foundation; or the Artistic License.
+This module is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself. See L<perlartistic>.
 
-See http://dev.perl.org/licenses/ for more information.
+=head1 DISCLAIMER OF WARRANTY
 
+BECAUSE THIS SOFTWARE IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY
+FOR THE SOFTWARE, TO THE EXTENT PERMITTED BY APPLICABLE LAW. EXCEPT WHEN
+OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES
+PROVIDE THE SOFTWARE "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER
+EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE
+ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE SOFTWARE IS WITH
+YOU. SHOULD THE SOFTWARE PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL
+NECESSARY SERVICING, REPAIR, OR CORRECTION.
 
-=cut
-
-1; # End of Test::More::Benchmark
+IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING
+WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MAY MODIFY AND/OR
+REDISTRIBUTE THE SOFTWARE AS PERMITTED BY THE ABOVE LICENCE, BE
+LIABLE TO YOU FOR DAMAGES, INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL,
+OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE
+THE SOFTWARE (INCLUDING BUT NOT LIMITED TO LOSS OF DATA OR DATA BEING
+RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A
+FAILURE OF THE SOFTWARE TO OPERATE WITH ANY OTHER SOFTWARE), EVEN IF
+SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGES.
