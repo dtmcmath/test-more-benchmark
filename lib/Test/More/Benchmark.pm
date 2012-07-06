@@ -27,17 +27,17 @@ sub _should_yaml {
     # Regular OK, with timestamps.
 sub ok_timeit (&;$) {
     my ( $test, $name ) = @_;
+    my $tb = $CLASS->builder;
     if (ref $test ne 'CODE') {
       ## Prototyping is not a panacea; clever folks can bypass it.
       ## sub{ goto &ok_timeit }->( 1, 'Psych!' ) ;
       ## There are probably easier ways, too.
-      warn "You tried to time a test that isn't a subroutine.  That's probably not what you meant" ;
+      $tb->note( "You tried to time a test that isn't a subroutine.  That's probably not what you meant" ) ;
       $test = sub { $test } ;
     }
     my $t = timeit( 1, sub { $test = eval {&$test} } ) ;
     warn $@ if $@ ;
 
-    my $tb = $CLASS->builder;
 
     my $ok = $tb->ok( $test, $name );
     ## Is there a more subclassy-way?
