@@ -10,7 +10,7 @@ all_from       'lib/Test/More/Benchmark.pm';
 
 # Specific dependencies
 requires       'Benchmark'  => 0;
-requires       'Test::More::Diagnostic' => 0 ;
+requires       'TAP::Parser::YAMLish::Writer' => 0 ;
 
   # test_requires  'Test::More'  => '0.42';
   # recommends     'Text::CSV_XS'=> '0.50';

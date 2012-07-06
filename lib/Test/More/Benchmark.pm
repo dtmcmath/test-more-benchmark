@@ -2,21 +2,29 @@ package Test::More::Benchmark ;
 ## This package borrows from Test::Builder::Module and from
 ## Test::More::Diagnostic.  Not sure which is more appropriate at this
 ## point.
-use 5.006;
+use 5.6.0 ;
 use strict;
 use warnings;
 use base qw/Test::Builder::Module/ ;
 
-use Test::More::Diagnostic ;
 use Benchmark qw/:hireswallclock/ ;
 use Data::Dumper ;
+
+use TAP::Parser::YAMLish::Writer ;
+## YAML isn't legcal until TAP version 13.
+use constant YAML_TAP_VERSION => 13 ;
 
 # $ENV{TAP_VERSION} = 13 ;
 our $CLASS = __PACKAGE__ ;  ## not sure what __PACKAGE__ will be when needed.
 our @EXPORT = qw(ok_timeit) ;
 our $VERSION = '0.1';
 
-# Regular OK, with timestamps.
+sub _should_yaml {
+    my $tap_version = $ENV{TAP_VERSION};
+    return defined $tap_version && $tap_version >= YAML_TAP_VERSION;
+}
+
+    # Regular OK, with timestamps.
 sub ok_timeit (&;$) {
     my ( $test, $name ) = @_;
     if (ref $test ne 'CODE') {
@@ -33,7 +41,7 @@ sub ok_timeit (&;$) {
 
     my $ok = $tb->ok( $test, $name );
     ## Is there a more subclassy-way?
-    if (Test::More::Diagnostic::_should_yaml()) {
+    if (_should_yaml()) {
       TAP::Parser::YAMLish::Writer->new->write(
             {
 	     timing => timestr($t),
